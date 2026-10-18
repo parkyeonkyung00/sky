@@ -1,0 +1,20 @@
+{
+  "name": "동두천양주 밤하늘 관측 시뮬레이터",
+  "short_name": "밤하늘 관측",
+  "description": "휴대폰 방향에 맞춰 별자리와 별의 위치를 살펴보는 관측 도구",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08111f",
+  "theme_color": "#08111f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

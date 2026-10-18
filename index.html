@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c1222">
+  <meta name="description" content="동두천양주 밤하늘을 예측하고 관측 기록을 비교하는 수업용 시뮬레이터">
+  <title>동두천양주 밤하늘 관측 시뮬레이터</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/data.js" defer></script>
+  <script src="js/astro.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div>
+        <h1>동두천양주 밤하늘 관측 시뮬레이터</h1>
+        <p class="sub">관측 전에 예측하고, 관측 뒤 실측값과 비교해요.</p>
+      </div>
+      <button id="btnRed" type="button" aria-pressed="false">야간 적색 모드</button>
+    </header>
+
+    <section class="controls" aria-label="관측 조건">
+      <div class="field placefield">
+        <span class="lbl">관측 장소</span>
+        <div class="placebox">
+          <div class="pinfo"><b id="placeName">양주 덕계동</b><span class="mono small muted" id="placeCoord"></span></div>
+          <button id="btnPlace" type="button" aria-expanded="false" aria-controls="placePanel">장소 바꾸기</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="date">관측 날짜 (저녁 기준)</label>
+        <input id="date" type="date" value="2026-10-25">
+      </div>
+      <div class="placepanel" id="placePanel" hidden>
+        <div class="pp-col">
+          <h3>지도 좌표 붙여 넣기</h3>
+          <div class="row nowrap"><input id="coordIn" type="text" placeholder="예: 37.818, 127.062" aria-label="좌표 또는 지도 링크"><button class="primary" id="coordApply" type="button">적용</button></div>
+          <p class="small muted">위도, 경도 순서의 숫자 좌표 또는 지도 링크에서 좌표를 읽습니다.</p>
+          <p class="small" id="coordMsg" aria-live="polite"></p>
+          <details><summary>좌표를 얻는 방법</summary><p class="small muted">지도에서 관측 지점을 길게 눌러 표시된 위도와 경도를 복사해 붙여 넣으세요.</p></details>
+        </div>
+        <div class="pp-col">
+          <h3>현재 위치와 직접 입력</h3>
+          <button id="btnGps" type="button">현재 위치 사용</button>
+          <p class="small muted" id="gpsMsg" aria-live="polite">GPS를 쓰려면 위치 권한을 허용해 주세요.</p>
+          <div class="latlon">
+            <div class="field"><label for="lat">위도</label><input id="lat" type="number" min="-90" max="90" step="0.0001"></div>
+            <div class="field"><label for="lon">경도</label><input id="lon" type="number" min="-180" max="180" step="0.0001"></div>
+          </div>
+        </div>
+        <div class="pp-col">
+          <h3>저장한 관측 장소</h3>
+          <div class="row nowrap"><input id="placeNameIn" type="text" placeholder="장소 이름" aria-label="저장할 장소 이름"><button id="savePlace" type="button">현재 장소 저장</button></div>
+          <div class="saved" id="savedList" aria-label="저장한 장소"></div>
+        </div>
+      </div>
+      <div class="timebar">
+        <button id="btnPlay" class="primary" type="button">▶ 재생</button>
+        <input id="time" type="range" min="960" max="1800" step="5" value="1200" aria-label="시각, 16시부터 다음 날 6시까지">
+        <output class="clock" id="clock">20:00</output>
+        <div class="ticks" id="ticks" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="main">
+      <div class="skybox">
+        <div class="seg viewseg" role="group" aria-label="하늘 보기 방식">
+          <button id="vDome" type="button" aria-pressed="true">전천 보기</button>
+          <button id="vPano" type="button" aria-pressed="false">지평선 보기</button>
+          <button id="vAr" type="button" aria-pressed="false">폰을 하늘로</button>
+        </div>
+        <div class="skyhead">
+          <div class="legend" id="legend" role="group" aria-label="천체 선택"></div>
+          <div class="row options">
+            <label><input type="checkbox" id="optLines" checked> 별자리 선</label>
+            <label><input type="checkbox" id="optNames" checked> 별 이름</label>
+            <label><input type="checkbox" id="optCons" checked> 별자리 이름</label>
+          </div>
+        </div>
+        <div class="canvaswrap" id="cw">
+          <canvas id="sky" tabindex="0" aria-label="밤하늘 지도. 천체를 선택하면 자세한 정보를 확인할 수 있습니다."></canvas>
+          <div class="tip" id="tip" hidden></div>
+        </div>
+        <div class="arbar" id="arBar" hidden>
+          <div class="row">
+            <button class="primary" id="arSensor" type="button">센서 켜기</button>
+            <button id="arCal" type="button">선택한 천체로 방향 보정</button>
+            <button id="arOut" type="button" aria-label="시야 넓히기">−</button>
+            <button id="arIn" type="button" aria-label="시야 좁히기">+</button>
+            <label><input type="checkbox" id="arDecl" checked> 나침반 보정</label>
+          </div>
+          <p class="small" id="arMsg" aria-live="polite">센서를 허용하거나 화면을 끌어 하늘을 둘러보세요.</p>
+        </div>
+        <p class="small muted" id="skyNote"></p>
+      </div>
+      <aside class="side">
+        <article class="card" id="objCard" aria-live="polite"></article>
+        <article class="card"><h3>오늘 밤 주요 시각</h3><ul class="events" id="events"></ul></article>
+      </aside>
+    </section>
+
+    <section class="activity">
+      <div class="tabs" role="tablist" aria-label="관측 활동">
+        <button type="button" role="tab" id="t1" aria-selected="true" aria-controls="p1">① 관측 예측표</button>
+        <button type="button" role="tab" id="t2" aria-selected="false" aria-controls="p2">② 실측값 비교</button>
+        <button type="button" role="tab" id="t3" aria-selected="false" aria-controls="p3">③ 하늘 밝기와 보이는 별</button>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="p1">
+        <div class="row between">
+          <p class="small muted">선택한 날짜의 천체 위치 예측값입니다. ● 표시는 천문박명이 끝난 뒤입니다.</p>
+          <div class="row"><label for="step">간격</label><select id="step"><option value="15">15분</option><option value="30" selected>30분</option><option value="60">1시간</option></select><button id="copyPred" type="button">표 복사 (엑셀용)</button></div>
+        </div>
+        <div class="scroll"><table id="predTable"></table></div>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="p2" hidden>
+        <form class="form" id="mForm">
+          <div class="field"><label for="mTarget">대상</label><select id="mTarget"></select></div>
+          <div class="field"><label for="mDate">날짜</label><input id="mDate" type="date" required></div>
+          <div class="field"><label for="mTime">측정 시각</label><input id="mTime" type="time" value="20:00" required></div>
+          <div class="field"><label for="mAlt">측정 고도 (°)</label><input id="mAlt" type="number" min="-5" max="90" step="0.1" placeholder="예: 35.0" required></div>
+          <div class="field"><label for="mAz">측정 방위각 (°)</label><input id="mAz" type="number" min="0" max="360" step="0.1"></div>
+          <div class="field"><label for="mWho">모둠 / 이름</label><input id="mWho" type="text" placeholder="예: 2모둠"></div>
+          <label class="small"><input type="checkbox" id="mMag"> 나침반 자북값 보정</label>
+          <button class="primary" type="submit">기록 추가</button>
+        </form>
+        <div class="two">
+          <article class="chartbox"><div class="row between"><h2 id="chartTitle">예측 고도와 실측값</h2><select id="chartTarget" aria-label="그래프 천체"></select></div><div id="chart"></div></article>
+          <article class="note"><b>관측 오차를 만드는 요인</b><ul><li>나침반 편각과 기기 방향 보정</li><li>기록 시각과 기기의 수평 상태</li><li>지평선 부근의 대기 굴절</li></ul></article>
+        </div>
+        <div class="row between"><p class="small muted" id="mSummary"></p><div class="row"><button id="clearEx" type="button">예시 기록 지우기</button><button id="copyMeas" type="button">기록 복사</button></div></div>
+        <div class="scroll"><table id="measTable"></table></div>
+        <textarea id="copybox" hidden aria-label="복사할 내용"></textarea>
+        <p class="toast" id="toast" aria-live="polite"></p>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="p3" hidden>
+        <div class="two">
+          <article class="card">
+            <div class="row between"><h2>맨눈으로 보이는 별</h2><label for="skyType">관측지 하늘</label><select id="skyType"><option value="city">도심</option><option value="suburb" selected>교외</option><option value="rural">시골</option></select></div>
+            <div class="big"><div><div class="k">현재 한계 등급</div><div class="v" id="nelmNow">-</div></div><div><div class="k">지평선 위 별 (추정)</div><div class="v" id="countNow">-</div></div></div>
+            <div class="bars" id="bars"></div>
+            <p class="small muted">하늘 밝기와 별 개수는 관측지 환경, 박명, 달빛을 이용한 교육용 추정값입니다.</p>
+          </article>
+          <article class="note"><b>관측 활동: 달빛은 별에 어떤 영향을 줄까요?</b><ul><li>같은 영역의 별 개수를 관측해 기록해 보세요.</li><li>날짜와 시각을 바꾸어 달빛에 따른 차이를 비교해 보세요.</li><li>실제 관측값은 구름과 대기 상태에 따라 달라집니다.</li></ul></article>
+        </div>
+      </div>
+    </section>
+
+    <footer>천체 위치는 제공된 시뮬레이터의 궤도 요소와 섭동 계산을 사용합니다. 시각은 한국 표준시(UTC+9) 기준입니다.</footer>
+  </main>
+</body>
+</html>
